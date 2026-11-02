@@ -56,7 +56,7 @@ def detect_active_conversation_id(override_id=None):
             dirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
             return dirs[0].name
 
-    return "default-session"
+    return "516bf843-c3ad-4899-890f-8a2b45a4866a"
 
 def find_github_token():
     """Busca o token do GitHub por variáveis de ambiente, arquivos locais ou GitHub CLI."""
@@ -318,9 +318,14 @@ async def start_cloudflared_and_sync():
 
     # Salva endpoint.json localmente no repositório
     endpoint_file = REPO_DIR / "endpoint.json"
+    host_info = f"{socket.gethostname()} ({platform.system()})"
     with open(endpoint_file, "w", encoding="utf-8") as f:
-        json.dump({"url": tunnel_url, "updated_at": time.time()}, f, indent=2)
-    print(f"[ENDPOINT] Atualizado localmente: {endpoint_file}")
+        json.dump({
+            "url": tunnel_url,
+            "updated_at": time.time(),
+            "host": host_info
+        }, f, indent=2)
+    print(f"[ENDPOINT] Atualizado localmente ({host_info}): {endpoint_file}")
 
     # Sincroniza com GitHub Pages se houver token ou credenciais
     token = find_github_token()
@@ -328,6 +333,8 @@ async def start_cloudflared_and_sync():
         try:
             remote_url = f"https://vudotsur:{token}@github.com/vudotsur/antigravity-remote.git"
             subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "remote", "set-url", "origin", remote_url], stderr=subprocess.DEVNULL)
+            # Rebase com origin/main para evitar conflitos de branch
+            subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "pull", "--rebase", "origin", "main"], stderr=subprocess.DEVNULL)
             subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "add", "endpoint.json"], check=True)
             subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "commit", "-m", "chore: sync tunnel endpoint [skip ci]"], check=True)
             subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "push", "origin", "main"], check=True)
