@@ -1,887 +1,1604 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Antigravity Remote Client | TeamViewer Proprietário</title>
-    <!-- Marked.js for markdown rendering -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        :root {
-            --bg-base: #090d16;
-            --bg-surface: #111827;
-            --bg-card: #162032;
-            --border-color: #1f2d44;
-            --accent-cyan: #06b6d4;
-            --accent-blue: #3b82f6;
-            --accent-green: #10b981;
-            --accent-amber: #f59e0b;
-            --accent-red: #ef4444;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            --font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', Menlo, Consolas, monospace;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            background-color: var(--bg-base);
-            color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            font-size: 14px;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* Top Header */
-        header {
-            background-color: var(--bg-surface);
-            border-bottom: 1px solid var(--border-color);
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-shrink: 0;
-            z-index: 10;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .brand-logo {
-            width: 24px;
-            height: 24px;
-            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            font-size: 13px;
-            color: #000;
-        }
-
-        .brand-title {
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: -0.3px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .brand-badge {
-            background: rgba(6, 182, 212, 0.15);
-            color: var(--accent-cyan);
-            border: 1px solid rgba(6, 182, 212, 0.3);
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: var(--font-mono);
-            font-weight: 600;
-        }
-
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .status-pill {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-family: var(--font-mono);
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: var(--accent-red);
-            transition: background-color 0.3s;
-        }
-
-        .status-dot.online {
-            background-color: var(--accent-green);
-            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
-        }
-
-        .btn-header {
-            background: var(--bg-card);
-            color: var(--text-secondary);
-            border: 1px solid var(--border-color);
-            padding: 5px 10px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-family: var(--font-mono);
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .btn-header:hover {
-            color: var(--text-primary);
-            border-color: var(--accent-cyan);
-        }
-
-        .btn-header.active {
-            background: rgba(6, 182, 212, 0.15);
-            color: var(--accent-cyan);
-            border-color: var(--accent-cyan);
-        }
-
-        /* Main Workspace Container */
-        main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Feed container */
-        #messages-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            scroll-behavior: smooth;
-        }
-
-        /* Message Bubbles */
-        .msg-row {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            max-width: 100%;
-        }
-
-        .msg-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 11px;
-            font-family: var(--font-mono);
-            color: var(--text-muted);
-        }
-
-        .msg-source-tag {
-            font-weight: 700;
-            padding: 1px 5px;
-            border-radius: 3px;
-            text-transform: uppercase;
-            font-size: 9px;
-        }
-
-        .source-user {
-            background: rgba(59, 130, 246, 0.2);
-            color: var(--accent-blue);
-            border: 1px solid rgba(59, 130, 246, 0.4);
-        }
-
-        .source-model {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--accent-green);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-        }
-
-        .source-tool {
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--accent-amber);
-            border: 1px solid rgba(245, 158, 11, 0.4);
-        }
-
-        .msg-body {
-            background-color: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 14px 16px;
-            line-height: 1.6;
-            color: var(--text-primary);
-            overflow-wrap: break-word;
-        }
-
-        .msg-user .msg-body {
-            background: rgba(59, 130, 246, 0.08);
-            border-color: rgba(59, 130, 246, 0.3);
-            font-size: 14px;
-        }
-
-        /* Tool Execution Card */
-        .tool-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            margin: 6px 0;
-            font-family: var(--font-mono);
-            font-size: 12px;
-            overflow: hidden;
-        }
-
-        .tool-header {
-            padding: 8px 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.02);
-            user-select: none;
-        }
-
-        .tool-name {
-            color: var(--accent-amber);
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .tool-status {
-            font-size: 10px;
-            color: var(--text-muted);
-        }
-
-        .tool-content {
-            padding: 10px 12px;
-            background: #090d14;
-            border-top: 1px solid var(--border-color);
-            font-size: 11px;
-            color: var(--text-secondary);
-            max-height: 250px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            display: none;
-        }
-
-        .tool-card.expanded .tool-content {
-            display: block;
-        }
-
-        /* Collapsed Mode Hide Tools */
-        body.mode-collapsed .tool-card:not(.user-expanded) {
-            display: none;
-        }
-
-        /* Markdown Formatting inside Model Body */
-        .msg-body h1, .msg-body h2, .msg-body h3 {
-            color: #fff;
-            margin: 14px 0 8px 0;
-            font-weight: 700;
-        }
-        .msg-body h1 { font-size: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; }
-        .msg-body h2 { font-size: 15px; }
-        .msg-body h3 { font-size: 13px; color: var(--accent-cyan); }
-        .msg-body p { margin-bottom: 10px; }
-        .msg-body ul, .msg-body ol { margin: 8px 0 12px 20px; }
-        .msg-body li { margin-bottom: 4px; }
-        .msg-body code {
-            background: rgba(255, 255, 255, 0.08);
-            color: var(--accent-cyan);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: var(--font-mono);
-            font-size: 12px;
-        }
-        .msg-body pre {
-            background: #090d14;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 12px;
-            overflow-x: auto;
-            margin: 10px 0;
-        }
-        .msg-body pre code {
-            background: transparent;
-            padding: 0;
-            color: #cbd5e1;
-        }
-        .msg-body table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 12px 0;
-            font-size: 12px;
-            font-family: var(--font-mono);
-        }
-        .msg-body th, .msg-body td {
-            border: 1px solid var(--border-color);
-            padding: 6px 10px;
-            text-align: left;
-        }
-        .msg-body th {
-            background: var(--bg-card);
-            color: var(--accent-cyan);
-        }
-
-        /* Bottom Controls */
-        footer {
-            background-color: var(--bg-surface);
-            border-top: 1px solid var(--border-color);
-            padding: 10px 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            flex-shrink: 0;
-        }
-
-        .quick-chips {
-            display: flex;
-            gap: 6px;
-            overflow-x: auto;
-            padding-bottom: 4px;
-            scrollbar-width: none;
-        }
-        .quick-chips::-webkit-scrollbar { display: none; }
-
-        .chip {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            font-size: 11px;
-            padding: 4px 10px;
-            border-radius: 14px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s;
-            font-family: var(--font-mono);
-        }
-
-        .chip:hover {
-            color: var(--accent-cyan);
-            border-color: var(--accent-cyan);
-            background: rgba(6, 182, 212, 0.08);
-        }
-
-        .input-bar {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .prompt-input {
-            flex: 1;
-            background: #090d14;
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.2s;
-            font-family: inherit;
-        }
-
-        .prompt-input:focus {
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
-        }
-
-        .btn-send {
-            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
-            border: none;
-            color: #000;
-            font-weight: 700;
-            padding: 10px 18px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: opacity 0.2s;
-        }
-
-        .btn-send:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Login Modal */
-        #login-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(9, 13, 22, 0.95);
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            padding: 20px;
-        }
-
-        .login-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            width: 100%;
-            max-width: 400px;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-        }
-
-        .login-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .login-desc {
-            font-size: 12px;
-            color: var(--text-secondary);
-            line-height: 1.5;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .form-label {
-            font-size: 11px;
-            font-family: var(--font-mono);
-            color: var(--text-muted);
-            text-transform: uppercase;
-        }
-
-        .form-input {
-            background: #090d14;
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 10px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            outline: none;
-            font-family: var(--font-mono);
-        }
-
-        .form-input:focus {
-            border-color: var(--accent-cyan);
-        }
-
-        .btn-login {
-            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
-            border: none;
-            color: #000;
-            font-weight: 700;
-            padding: 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 8px;
-        }
-
-        /* Activity Spinner */
-        .typing-indicator {
-            display: none;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            font-size: 12px;
-            font-family: var(--font-mono);
-            color: var(--accent-cyan);
-        }
-
-        .typing-indicator.active {
-            display: flex;
-        }
-
-        .dot-flashing {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background-color: var(--accent-cyan);
-            animation: dotFlashing 1s infinite alternate;
-        }
-
-        @keyframes dotFlashing {
-            0% { opacity: 0.2; transform: scale(0.8); }
-            100% { opacity: 1; transform: scale(1.2); }
-        }
-    </style>
-</head>
-<body class="mode-expanded">
-
-    <!-- Login Overlay Modal -->
-    <div id="login-overlay">
-        <div class="login-card">
-            <div class="login-title">
-                <span>⚡</span> Antigravity Remote Host
-            </div>
-            <div class="login-desc">
-                Controle Remoto Proprietário do terminal Antigravity. Conecte-se com segurança ao seu PC local.
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">URL do Túnel (WSS / HTTPS)</label>
-                <input type="text" id="input-tunnel" class="form-input" placeholder="https://xxxx.trycloudflare.com">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Senha Mestra de Acesso</label>
-                <input type="password" id="input-password" class="form-input" placeholder="••••••••••••">
-            </div>
-
-            <button id="btn-do-login" class="btn-login">Conectar ao Terminal</button>
-            <div id="login-error" style="color: var(--accent-red); font-size: 11px; text-align: center; display: none;"></div>
-        </div>
-    </div>
-
-    <!-- Header -->
-    <header>
-        <div class="brand">
-            <div class="brand-logo">A</div>
-            <div class="brand-title">
-                Antigravity Remote
-                <span class="brand-badge">PRO v2.4</span>
-            </div>
-        </div>
-
-        <div class="header-actions">
-            <button id="btn-clear-screen" class="btn-header" title="Limpar visualização da tela do celular">
-                <span>🧹 Limpar Tela</span>
-            </button>
-            <button id="btn-toggle-collapsed" class="btn-header" title="Alternar visão colapsada (Ctrl+O)">
-                <span id="btn-toggle-text">[Ctrl+O] Expandido</span>
-            </button>
-            <div class="status-pill">
-                <div id="status-dot" class="status-dot"></div>
-                <span id="status-text">Desconectado</span>
-            </div>
-        </div>
-    </header>
-
-    <!-- Chat / Terminal Workspace -->
-    <main>
-        <div id="messages-container"></div>
-        <div id="typing-indicator" class="typing-indicator">
-            <div class="dot-flashing"></div>
-            <span>Antigravity processando no computador local...</span>
-        </div>
-    </main>
-
-    <!-- Bottom Controls & Prompt Input -->
-    <footer>
-        <div class="quick-chips">
-            <button class="chip" data-prompt="Como estão as métricas e cliques da campanha no Google Ads agora?">📊 Status Google Ads</button>
-            <button class="chip" data-prompt="Verifique o saldo da banca e confirme o teto diário de proteção.">🛡️ Saldo & Proteção</button>
-            <button class="chip" data-prompt="Audite os status das novas campanhas pausadas.">🔍 Checar Campanhas</button>
-            <button class="chip" data-prompt="Quais são as próximas ações recomendadas para amanhã cedo?">📋 Próximas Ações</button>
-        </div>
-
-        <div class="input-bar">
-            <input type="text" id="prompt-input" class="prompt-input" placeholder="Digite uma mensagem ou comando para o Antigravity..." autocomplete="off">
-            <button id="btn-send" class="btn-send">
-                <span>Enviar</span>
-                <span>➔</span>
-            </button>
-        </div>
-    </footer>
-
-    <script>
-        let ws = null;
-        let tunnelUrl = localStorage.getItem('agy_remote_tunnel') || '';
-        let password = localStorage.getItem('agy_remote_pass') || '';
-        let isCollapsed = localStorage.getItem('agy_remote_collapsed') === 'true'; // false by default = EXPANDED!
-
-        const messagesContainer = document.getElementById('messages-container');
-        const typingIndicator = document.getElementById('typing-indicator');
-        const promptInput = document.getElementById('prompt-input');
-        const btnSend = document.getElementById('btn-send');
-        const statusDot = document.getElementById('status-dot');
-        const statusText = document.getElementById('status-text');
-        const btnToggleCollapsed = document.getElementById('btn-toggle-collapsed');
-        const btnToggleText = document.getElementById('btn-toggle-text');
-        const loginOverlay = document.getElementById('login-overlay');
-        const inputTunnel = document.getElementById('input-tunnel');
-        const inputPassword = document.getElementById('input-password');
-        const btnDoLogin = document.getElementById('btn-do-login');
-        const loginError = document.getElementById('login-error');
-
-        function updateCollapsedUI() {
-            document.body.classList.toggle('mode-collapsed', isCollapsed);
-            if (btnToggleText) {
-                btnToggleText.textContent = isCollapsed ? '[Ctrl+O] Colapsado' : '[Ctrl+O] Expandido (Ver Tudo)';
-            }
-            btnToggleCollapsed.classList.toggle('active', !isCollapsed);
-        }
-        updateCollapsedUI();
-
-        // Pre-fill fields if cached
-        if (tunnelUrl) inputTunnel.value = tunnelUrl;
-        if (password) inputPassword.value = password;
-
-        // Auto-discover tunnel URL from endpoint.json
-        async function autoDiscoverEndpoint() {
-            try {
-                const res = await fetch('./endpoint.json?t=' + Date.now());
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.url) {
-                        console.log('Endpoint autodiscovered:', data.url);
-                        if (!inputTunnel.value || inputTunnel.value !== data.url) {
-                            inputTunnel.value = data.url;
-                        }
-                        tunnelUrl = data.url;
-                        localStorage.setItem('agy_remote_tunnel', tunnelUrl);
-                    }
-                }
-            } catch (err) {
-                console.log('Endpoint autodiscovery skipped:', err);
-            }
-        }
-        autoDiscoverEndpoint();
-
-        const btnClearScreen = document.getElementById('btn-clear-screen');
-        if (btnClearScreen) {
-            btnClearScreen.addEventListener('click', () => {
-                messagesContainer.innerHTML = '';
-            });
-        }
-
-        // Collapsed mode toggle
-        btnToggleCollapsed.addEventListener('click', () => {
-            isCollapsed = !isCollapsed;
-            localStorage.setItem('agy_remote_collapsed', isCollapsed);
-            updateCollapsedUI();
-        });
-
-        // Login Handler
-        function doLogin() {
-            tunnelUrl = inputTunnel.value.trim().replace(/\/+$/, '');
-            password = inputPassword.value.trim();
-            if (!tunnelUrl) {
-                showLoginError('Por favor informe a URL do túnel');
-                return;
-            }
-            if (!password) {
-                showLoginError('Por favor informe a senha de acesso');
-                return;
-            }
-            localStorage.setItem('agy_remote_tunnel', tunnelUrl);
-            localStorage.setItem('agy_remote_pass', password);
-            connectWebSocket();
-        }
-
-        btnDoLogin.addEventListener('click', doLogin);
-
-        inputPassword.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                doLogin();
-            }
-        });
-
-        inputTunnel.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                inputPassword.focus();
-            }
-        });
-
-        function showLoginError(msg) {
-            loginError.textContent = msg;
-            loginError.style.display = 'block';
-        }
-
-        // WebSocket Connection
-        function connectWebSocket() {
-            let wsUrl = tunnelUrl;
-            if (wsUrl.startsWith('https://')) {
-                wsUrl = wsUrl.replace('https://', 'wss://');
-            } else if (wsUrl.startsWith('http://')) {
-                wsUrl = wsUrl.replace('http://', 'ws://');
-            }
-            if (!wsUrl.includes('/ws')) {
-                wsUrl += '/ws';
-            }
-
-            statusText.textContent = 'Conectando...';
-            try {
-                ws = new WebSocket(wsUrl);
-            } catch (err) {
-                showLoginError('Erro ao abrir WebSocket: ' + err.message);
-                return;
-            }
-
-            ws.onopen = () => {
-                // Send auth message
-                ws.send(JSON.stringify({ type: 'auth', password: password }));
-            };
-
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                handleServerMessage(data);
-            };
-
-            ws.onerror = (err) => {
-                statusText.textContent = 'Erro';
-                statusDot.className = 'status-dot';
-            };
-
-            ws.onclose = () => {
-                statusText.textContent = 'Desconectado';
-                statusDot.className = 'status-dot';
-                btnSend.disabled = true;
-            };
-        }
-
-        function handleServerMessage(data) {
-            if (data.type === 'auth_ok') {
-                loginOverlay.style.display = 'none';
-                statusText.textContent = 'Online (' + (data.host || 'antigravity-host') + ')';
-                statusDot.className = 'status-dot online';
-                btnSend.disabled = false;
-                promptInput.focus();
-
-                // If server sent initial history
-                if (data.history && Array.isArray(data.history)) {
-                    messagesContainer.innerHTML = '';
-                    data.history.forEach(item => renderMessageItem(item));
-                    scrollToBottom();
-                }
-            } else if (data.type === 'auth_fail') {
-                showLoginError('Senha incorreta!');
-                if (ws) ws.close();
-            } else if (data.type === 'msg_chunk' || data.type === 'msg_full') {
-                typingIndicator.classList.remove('active');
-                renderMessageItem(data.item);
-                scrollToBottom();
-            } else if (data.type === 'status_busy') {
-                typingIndicator.classList.add('active');
-            } else if (data.type === 'status_idle') {
-                typingIndicator.classList.remove('active');
-            }
-        }
-
-        function renderMessageItem(item) {
-            if (!item) return;
-            const row = document.createElement('div');
-            row.className = 'msg-row';
-
-            if (item.source === 'USER' || item.type === 'USER_INPUT') {
-                row.classList.add('msg-user');
-                row.innerHTML = `
-                    <div class="msg-header">
-                        <span class="msg-source-tag source-user">VOCÊ</span>
-                        <span>${item.time || ''}</span>
-                    </div>
-                    <div class="msg-body">${escapeHtml(item.content)}</div>
-                `;
-            } else if (item.type === 'TOOL_CALL') {
-                const card = document.createElement('div');
-                card.className = 'tool-card expanded';
-                card.innerHTML = `
-                    <div class="tool-header">
-                        <div class="tool-name">
-                            <span>⚙️</span>
-                            <span>${escapeHtml(item.tool_name || 'Comando')}</span>
-                        </div>
-                        <div class="tool-status">${escapeHtml(item.summary || 'Executado ✓')}</div>
-                    </div>
-                    <div class="tool-content" style="display:block;">${escapeHtml(item.content || item.output || '')}</div>
-                `;
-                card.querySelector('.tool-header').addEventListener('click', () => {
-                    const cnt = card.querySelector('.tool-content');
-                    if (cnt.style.display === 'none') {
-                        cnt.style.display = 'block';
-                        card.classList.add('expanded');
-                    } else {
-                        cnt.style.display = 'none';
-                        card.classList.remove('expanded');
-                    }
-                });
-                row.appendChild(card);
-            } else {
-                // MODEL / PLANNER_RESPONSE
-                row.classList.add('msg-model');
-                const htmlContent = marked.parse(item.content || '');
-                row.innerHTML = `
-                    <div class="msg-header">
-                        <span class="msg-source-tag source-model">ANTIGRAVITY</span>
-                        <span>${item.time || ''}</span>
-                    </div>
-                    <div class="msg-body">${htmlContent}</div>
-                `;
-            }
-
-            messagesContainer.appendChild(row);
-        }
-
-        function scrollToBottom() {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        }
-
-        // Send Message
-        function sendUserPrompt(text) {
-            if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
-            
-            // Render locally immediately
-            renderMessageItem({
-                source: 'USER',
-                type: 'USER_INPUT',
-                content: text,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-            scrollToBottom();
-            typingIndicator.classList.add('active');
-
-            ws.send(JSON.stringify({
-                type: 'user_message',
-                content: text
-            }));
-            promptInput.value = '';
-        }
-
-        btnSend.addEventListener('click', () => {
-            sendUserPrompt(promptInput.value.trim());
-        });
-
-        promptInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendUserPrompt(promptInput.value.trim());
-            }
-        });
-
-        // Quick Chips
-        document.querySelectorAll('.chip').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const prompt = btn.getAttribute('data-prompt');
-                sendUserPrompt(prompt);
-            });
-        });
-    </script>
-</body>
-</html>
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>Antigravity Remote Client | TeamViewer Proprietário</title>
+
+    <!-- Marked.js for markdown rendering -->
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+
+        :root {
+
+            --bg-base: #090d16;
+
+            --bg-surface: #111827;
+
+            --bg-card: #162032;
+
+            --border-color: #1f2d44;
+
+            --accent-cyan: #06b6d4;
+
+            --accent-blue: #3b82f6;
+
+            --accent-green: #10b981;
+
+            --accent-amber: #f59e0b;
+
+            --accent-red: #ef4444;
+
+            --text-primary: #f1f5f9;
+
+            --text-secondary: #94a3b8;
+
+            --text-muted: #64748b;
+
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', Menlo, Consolas, monospace;
+
+        }
+
+        * {
+
+            box-sizing: border-box;
+
+            margin: 0;
+
+            padding: 0;
+
+            -webkit-tap-highlight-color: transparent;
+
+        }
+
+        body {
+
+            background-color: var(--bg-base);
+
+            color: var(--text-primary);
+
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+            font-size: 14px;
+
+            height: 100vh;
+
+            display: flex;
+
+            flex-direction: column;
+
+            overflow: hidden;
+
+        }
+
+        /* Top Header */
+
+        header {
+
+            background-color: var(--bg-surface);
+
+            border-bottom: 1px solid var(--border-color);
+
+            padding: 10px 16px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            flex-shrink: 0;
+
+            z-index: 10;
+
+        }
+
+        .brand {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+        }
+
+        .brand-logo {
+
+            width: 24px;
+
+            height: 24px;
+
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+
+            border-radius: 6px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-weight: 900;
+
+            font-size: 13px;
+
+            color: #000;
+
+        }
+
+        .brand-title {
+
+            font-size: 14px;
+
+            font-weight: 700;
+
+            letter-spacing: -0.3px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+        }
+
+        .brand-badge {
+
+            background: rgba(6, 182, 212, 0.15);
+
+            color: var(--accent-cyan);
+
+            border: 1px solid rgba(6, 182, 212, 0.3);
+
+            font-size: 10px;
+
+            padding: 2px 6px;
+
+            border-radius: 4px;
+
+            font-family: var(--font-mono);
+
+            font-weight: 600;
+
+        }
+
+        .header-actions {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+
+        }
+
+        .status-pill {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+            background: var(--bg-card);
+
+            border: 1px solid var(--border-color);
+
+            padding: 4px 10px;
+
+            border-radius: 20px;
+
+            font-size: 11px;
+
+            font-family: var(--font-mono);
+
+        }
+
+        .status-dot {
+
+            width: 8px;
+
+            height: 8px;
+
+            border-radius: 50%;
+
+            background-color: var(--accent-red);
+
+            transition: background-color 0.3s;
+
+        }
+
+        .status-dot.online {
+
+            background-color: var(--accent-green);
+
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+
+        }
+
+        .btn-header {
+
+            background: var(--bg-card);
+
+            color: var(--text-secondary);
+
+            border: 1px solid var(--border-color);
+
+            padding: 5px 10px;
+
+            border-radius: 6px;
+
+            font-size: 11px;
+
+            font-family: var(--font-mono);
+
+            cursor: pointer;
+
+            transition: all 0.2s;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 4px;
+
+        }
+
+        .btn-header:hover {
+
+            color: var(--text-primary);
+
+            border-color: var(--accent-cyan);
+
+        }
+
+        .btn-header.active {
+
+            background: rgba(6, 182, 212, 0.15);
+
+            color: var(--accent-cyan);
+
+            border-color: var(--accent-cyan);
+
+        }
+
+        /* Main Workspace Container */
+
+        main {
+
+            flex: 1;
+
+            display: flex;
+
+            flex-direction: column;
+
+            overflow: hidden;
+
+            position: relative;
+
+        }
+
+        /* Feed container */
+
+        #messages-container {
+
+            flex: 1;
+
+            overflow-y: auto;
+
+            padding: 16px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 16px;
+
+            scroll-behavior: smooth;
+
+        }
+
+        /* Message Bubbles */
+
+        .msg-row {
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 4px;
+
+            max-width: 100%;
+
+        }
+
+        .msg-header {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+
+            font-size: 11px;
+
+            font-family: var(--font-mono);
+
+            color: var(--text-muted);
+
+        }
+
+        .msg-source-tag {
+
+            font-weight: 700;
+
+            padding: 1px 5px;
+
+            border-radius: 3px;
+
+            text-transform: uppercase;
+
+            font-size: 9px;
+
+        }
+
+        .source-user {
+
+            background: rgba(59, 130, 246, 0.2);
+
+            color: var(--accent-blue);
+
+            border: 1px solid rgba(59, 130, 246, 0.4);
+
+        }
+
+        .source-model {
+
+            background: rgba(16, 185, 129, 0.2);
+
+            color: var(--accent-green);
+
+            border: 1px solid rgba(16, 185, 129, 0.4);
+
+        }
+
+        .source-tool {
+
+            background: rgba(245, 158, 11, 0.2);
+
+            color: var(--accent-amber);
+
+            border: 1px solid rgba(245, 158, 11, 0.4);
+
+        }
+
+        .msg-body {
+
+            background-color: var(--bg-surface);
+
+            border: 1px solid var(--border-color);
+
+            border-radius: 8px;
+
+            padding: 14px 16px;
+
+            line-height: 1.6;
+
+            color: var(--text-primary);
+
+            overflow-wrap: break-word;
+
+        }
+
+        .msg-user .msg-body {
+
+            background: rgba(59, 130, 246, 0.08);
+
+            border-color: rgba(59, 130, 246, 0.3);
+
+            font-size: 14px;
+
+        }
+
+        /* Tool Execution Card */
+
+        .tool-card {
+
+            background: var(--bg-card);
+
+            border: 1px solid var(--border-color);
+
+            border-radius: 6px;
+
+            margin: 6px 0;
+
+            font-family: var(--font-mono);
+
+            font-size: 12px;
+
+            overflow: hidden;
+
+        }
+
+        .tool-header {
+
+            padding: 8px 12px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            cursor: pointer;
+
+            background: rgba(255, 255, 255, 0.02);
+
+            user-select: none;
+
+        }
+
+        .tool-name {
+
+            color: var(--accent-amber);
+
+            font-weight: 600;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+        }
+
+        .tool-status {
+
+            font-size: 10px;
+
+            color: var(--text-muted);
+
+        }
+
+        .tool-content {
+
+            padding: 10px 12px;
+
+            background: #090d14;
+
+            border-top: 1px solid var(--border-color);
+
+            font-size: 11px;
+
+            color: var(--text-secondary);
+
+            max-height: 250px;
+
+            overflow-y: auto;
+
+            white-space: pre-wrap;
+
+            display: none;
+
+        }
+
+        .tool-card.expanded .tool-content {
+
+            display: block;
+
+        }
+
+        /* Collapsed Mode Hide Tools */
+
+        body.mode-collapsed .tool-card:not(.user-expanded) {
+
+            display: none;
+
+        }
+
+        /* Markdown Formatting inside Model Body */
+
+        .msg-body h1, .msg-body h2, .msg-body h3 {
+
+            color: #fff;
+
+            margin: 14px 0 8px 0;
+
+            font-weight: 700;
+
+        }
+
+        .msg-body h1 { font-size: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; }
+
+        .msg-body h2 { font-size: 15px; }
+
+        .msg-body h3 { font-size: 13px; color: var(--accent-cyan); }
+
+        .msg-body p { margin-bottom: 10px; }
+
+        .msg-body ul, .msg-body ol { margin: 8px 0 12px 20px; }
+
+        .msg-body li { margin-bottom: 4px; }
+
+        .msg-body code {
+
+            background: rgba(255, 255, 255, 0.08);
+
+            color: var(--accent-cyan);
+
+            padding: 2px 6px;
+
+            border-radius: 4px;
+
+            font-family: var(--font-mono);
+
+            font-size: 12px;
+
+        }
+
+        .msg-body pre {
+
+            background: #090d14;
+
+            border: 1px solid var(--border-color);
+
+            border-radius: 6px;
+
+            padding: 12px;
+
+            overflow-x: auto;
+
+            margin: 10px 0;
+
+        }
+
+        .msg-body pre code {
+
+            background: transparent;
+
+            padding: 0;
+
+            color: #cbd5e1;
+
+        }
+
+        .msg-body table {
+
+            width: 100%;
+
+            border-collapse: collapse;
+
+            margin: 12px 0;
+
+            font-size: 12px;
+
+            font-family: var(--font-mono);
+
+        }
+
+        .msg-body th, .msg-body td {
+
+            border: 1px solid var(--border-color);
+
+            padding: 6px 10px;
+
+            text-align: left;
+
+        }
+
+        .msg-body th {
+
+            background: var(--bg-card);
+
+            color: var(--accent-cyan);
+
+        }
+
+        /* Bottom Controls */
+
+        footer {
+
+            background-color: var(--bg-surface);
+
+            border-top: 1px solid var(--border-color);
+
+            padding: 10px 14px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 8px;
+
+            flex-shrink: 0;
+
+        }
+
+        .quick-chips {
+
+            display: flex;
+
+            gap: 6px;
+
+            overflow-x: auto;
+
+            padding-bottom: 4px;
+
+            scrollbar-width: none;
+
+        }
+
+        .quick-chips::-webkit-scrollbar { display: none; }
+
+        .chip {
+
+            background: var(--bg-card);
+
+            border: 1px solid var(--border-color);
+
+            color: var(--text-secondary);
+
+            font-size: 11px;
+
+            padding: 4px 10px;
+
+            border-radius: 14px;
+
+            cursor: pointer;
+
+            white-space: nowrap;
+
+            transition: all 0.2s;
+
+            font-family: var(--font-mono);
+
+        }
+
+        .chip:hover {
+
+            color: var(--accent-cyan);
+
+            border-color: var(--accent-cyan);
+
+            background: rgba(6, 182, 212, 0.08);
+
+        }
+
+        .input-bar {
+
+            display: flex;
+
+            gap: 8px;
+
+            align-items: center;
+
+        }
+
+        .prompt-input {
+
+            flex: 1;
+
+            background: #090d14;
+
+            border: 1px solid var(--border-color);
+
+            color: var(--text-primary);
+
+            padding: 10px 14px;
+
+            border-radius: 8px;
+
+            font-size: 14px;
+
+            outline: none;
+
+            transition: border-color 0.2s;
+
+            font-family: inherit;
+
+        }
+
+        .prompt-input:focus {
+
+            border-color: var(--accent-cyan);
+
+            box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+
+        }
+
+        .btn-send {
+
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+
+            border: none;
+
+            color: #000;
+
+            font-weight: 700;
+
+            padding: 10px 18px;
+
+            border-radius: 8px;
+
+            cursor: pointer;
+
+            font-size: 13px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+            transition: opacity 0.2s;
+
+        }
+
+        .btn-send:disabled {
+
+            opacity: 0.5;
+
+            cursor: not-allowed;
+
+        }
+
+        /* Login Modal */
+
+        #login-overlay {
+
+            position: fixed;
+
+            inset: 0;
+
+            background: rgba(9, 13, 22, 0.95);
+
+            backdrop-filter: blur(8px);
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            z-index: 100;
+
+            padding: 20px;
+
+        }
+
+        .login-card {
+
+            background: var(--bg-surface);
+
+            border: 1px solid var(--border-color);
+
+            border-radius: 12px;
+
+            width: 100%;
+
+            max-width: 400px;
+
+            padding: 24px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 16px;
+
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+
+        }
+
+        .login-title {
+
+            font-size: 18px;
+
+            font-weight: 700;
+
+            color: #fff;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+
+        }
+
+        .login-desc {
+
+            font-size: 12px;
+
+            color: var(--text-secondary);
+
+            line-height: 1.5;
+
+        }
+
+        .form-group {
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 6px;
+
+        }
+
+        .form-label {
+
+            font-size: 11px;
+
+            font-family: var(--font-mono);
+
+            color: var(--text-muted);
+
+            text-transform: uppercase;
+
+        }
+
+        .form-input {
+
+            background: #090d14;
+
+            border: 1px solid var(--border-color);
+
+            color: var(--text-primary);
+
+            padding: 10px 12px;
+
+            border-radius: 6px;
+
+            font-size: 13px;
+
+            outline: none;
+
+            font-family: var(--font-mono);
+
+        }
+
+        .form-input:focus {
+
+            border-color: var(--accent-cyan);
+
+        }
+
+        .btn-login {
+
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+
+            border: none;
+
+            color: #000;
+
+            font-weight: 700;
+
+            padding: 12px;
+
+            border-radius: 6px;
+
+            cursor: pointer;
+
+            font-size: 14px;
+
+            margin-top: 8px;
+
+        }
+
+        /* Activity Spinner */
+
+        .typing-indicator {
+
+            display: none;
+
+            align-items: center;
+
+            gap: 8px;
+
+            padding: 8px 16px;
+
+            font-size: 12px;
+
+            font-family: var(--font-mono);
+
+            color: var(--accent-cyan);
+
+        }
+
+        .typing-indicator.active {
+
+            display: flex;
+
+        }
+
+        .dot-flashing {
+
+            width: 6px;
+
+            height: 6px;
+
+            border-radius: 50%;
+
+            background-color: var(--accent-cyan);
+
+            animation: dotFlashing 1s infinite alternate;
+
+        }
+
+        @keyframes dotFlashing {
+
+            0% { opacity: 0.2; transform: scale(0.8); }
+
+            100% { opacity: 1; transform: scale(1.2); }
+
+        }
+
+    </style>
+
+</head>
+
+<body class="mode-expanded">
+
+    <!-- Login Overlay Modal -->
+
+    <div id="login-overlay">
+
+        <div class="login-card">
+
+            <div class="login-title">
+
+                <span>⚡</span> Antigravity Remote Host
+
+            </div>
+
+            <div class="login-desc">
+
+                Controle Remoto Proprietário do terminal Antigravity. Conecte-se com segurança ao seu PC local.
+
+            </div>
+
+            
+
+            <div class="form-group">
+
+                <label class="form-label">URL do Túnel (WSS / HTTPS)</label>
+
+                <input type="text" id="input-tunnel" class="form-input" placeholder="https://xxxx.trycloudflare.com">
+
+            </div>
+
+            <div class="form-group">
+
+                <label class="form-label">Senha Mestra de Acesso</label>
+
+                <input type="password" id="input-password" class="form-input" placeholder="••••••••••••">
+
+            </div>
+
+            <button id="btn-do-login" class="btn-login">Conectar ao Terminal</button>
+
+            <div id="login-error" style="color: var(--accent-red); font-size: 11px; text-align: center; display: none;"></div>
+
+        </div>
+
+    </div>
+
+    <!-- Header -->
+
+    <header>
+
+        <div class="brand">
+
+            <div class="brand-logo">A</div>
+
+            <div class="brand-title">
+
+                Antigravity Remote
+
+                <span class="brand-badge">PRO v2.4</span>
+
+            </div>
+
+        </div>
+
+        <div class="header-actions">
+
+            <button id="btn-clear-screen" class="btn-header" title="Limpar visualização da tela do celular">
+
+                <span>🧹 Limpar Tela</span>
+
+            </button>
+
+            <button id="btn-toggle-collapsed" class="btn-header" title="Alternar visão colapsada (Ctrl+O)">
+
+                <span id="btn-toggle-text">[Ctrl+O] Expandido</span>
+
+            </button>
+
+            <div class="status-pill">
+
+                <div id="status-dot" class="status-dot"></div>
+
+                <span id="status-text">Desconectado</span>
+
+            </div>
+
+        </div>
+
+    </header>
+
+    <!-- Chat / Terminal Workspace -->
+
+    <main>
+
+        <div id="messages-container"></div>
+
+        <div id="typing-indicator" class="typing-indicator">
+
+            <div class="dot-flashing"></div>
+
+            <span>Antigravity processando no computador local...</span>
+
+        </div>
+
+    </main>
+
+    <!-- Bottom Controls & Prompt Input -->
+
+    <footer>
+
+        <div class="quick-chips">
+
+            <button class="chip" data-prompt="Como estão as métricas e cliques da campanha no Google Ads agora?">📊 Status Google Ads</button>
+
+            <button class="chip" data-prompt="Verifique o saldo da banca e confirme o teto diário de proteção.">🛡️ Saldo & Proteção</button>
+
+            <button class="chip" data-prompt="Audite os status das novas campanhas pausadas.">🔍 Checar Campanhas</button>
+
+            <button class="chip" data-prompt="Quais são as próximas ações recomendadas para amanhã cedo?">📋 Próximas Ações</button>
+
+        </div>
+
+        <div class="input-bar">
+
+            <input type="text" id="prompt-input" class="prompt-input" placeholder="Digite uma mensagem ou comando para o Antigravity..." autocomplete="off">
+
+            <button id="btn-send" class="btn-send">
+
+                <span>Enviar</span>
+
+                <span>➔</span>
+
+            </button>
+
+        </div>
+
+    </footer>
+
+    <script>
+
+        let ws = null;
+
+        let tunnelUrl = localStorage.getItem('agy_remote_tunnel') || '';
+
+        let password = localStorage.getItem('agy_remote_pass') || '';
+
+        let isCollapsed = localStorage.getItem('agy_remote_collapsed') === 'true'; // false by default = EXPANDED!
+
+        const messagesContainer = document.getElementById('messages-container');
+
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        const promptInput = document.getElementById('prompt-input');
+
+        const btnSend = document.getElementById('btn-send');
+
+        const statusDot = document.getElementById('status-dot');
+
+        const statusText = document.getElementById('status-text');
+
+        const btnToggleCollapsed = document.getElementById('btn-toggle-collapsed');
+
+        const btnToggleText = document.getElementById('btn-toggle-text');
+
+        const loginOverlay = document.getElementById('login-overlay');
+
+        const inputTunnel = document.getElementById('input-tunnel');
+
+        const inputPassword = document.getElementById('input-password');
+
+        const btnDoLogin = document.getElementById('btn-do-login');
+
+        const loginError = document.getElementById('login-error');
+
+        function updateCollapsedUI() {
+
+            document.body.classList.toggle('mode-collapsed', isCollapsed);
+
+            if (btnToggleText) {
+
+                btnToggleText.textContent = isCollapsed ? '[Ctrl+O] Colapsado' : '[Ctrl+O] Expandido (Ver Tudo)';
+
+            }
+
+            btnToggleCollapsed.classList.toggle('active', !isCollapsed);
+
+        }
+
+        updateCollapsedUI();
+
+        // Pre-fill fields if cached
+
+        if (tunnelUrl) inputTunnel.value = tunnelUrl;
+
+        if (password) inputPassword.value = password;
+
+        // Auto-discover tunnel URL from endpoint.json
+
+        async function autoDiscoverEndpoint() {
+
+            try {
+
+                const res = await fetch('./endpoint.json?t=' + Date.now());
+
+                if (res.ok) {
+
+                    const data = await res.json();
+
+                    if (data && data.url) {
+
+                        console.log('Endpoint autodiscovered:', data.url);
+
+                        if (!inputTunnel.value || inputTunnel.value !== data.url) {
+
+                            inputTunnel.value = data.url;
+
+                        }
+
+                        tunnelUrl = data.url;
+
+                        localStorage.setItem('agy_remote_tunnel', tunnelUrl);
+
+                    }
+
+                }
+
+            } catch (err) {
+
+                console.log('Endpoint autodiscovery skipped:', err);
+
+            }
+
+        }
+
+        autoDiscoverEndpoint();
+
+        const btnClearScreen = document.getElementById('btn-clear-screen');
+
+        if (btnClearScreen) {
+
+            btnClearScreen.addEventListener('click', () => {
+
+                messagesContainer.innerHTML = '';
+
+            });
+
+        }
+
+        // Collapsed mode toggle
+
+        btnToggleCollapsed.addEventListener('click', () => {
+
+            isCollapsed = !isCollapsed;
+
+            localStorage.setItem('agy_remote_collapsed', isCollapsed);
+
+            updateCollapsedUI();
+
+        });
+
+        // Login Handler
+
+        function doLogin() {
+
+            tunnelUrl = inputTunnel.value.trim().replace(/\/+$/, '');
+
+            password = inputPassword.value.trim();
+
+            if (!tunnelUrl) {
+
+                showLoginError('Por favor informe a URL do túnel');
+
+                return;
+
+            }
+
+            if (!password) {
+
+                showLoginError('Por favor informe a senha de acesso');
+
+                return;
+
+            }
+
+            localStorage.setItem('agy_remote_tunnel', tunnelUrl);
+
+            localStorage.setItem('agy_remote_pass', password);
+
+            connectWebSocket();
+
+        }
+
+        btnDoLogin.addEventListener('click', doLogin);
+
+        inputPassword.addEventListener('keydown', (e) => {
+
+            if (e.key === 'Enter') {
+
+                e.preventDefault();
+
+                doLogin();
+
+            }
+
+        });
+
+        inputTunnel.addEventListener('keydown', (e) => {
+
+            if (e.key === 'Enter') {
+
+                e.preventDefault();
+
+                inputPassword.focus();
+
+            }
+
+        });
+
+        function showLoginError(msg) {
+
+            loginError.textContent = msg;
+
+            loginError.style.display = 'block';
+
+        }
+
+        // WebSocket Connection
+
+        function connectWebSocket() {
+
+            let wsUrl = tunnelUrl;
+
+            if (wsUrl.startsWith('https://')) {
+
+                wsUrl = wsUrl.replace('https://', 'wss://');
+
+            } else if (wsUrl.startsWith('http://')) {
+
+                wsUrl = wsUrl.replace('http://', 'ws://');
+
+            }
+
+            if (!wsUrl.includes('/ws')) {
+
+                wsUrl += '/ws';
+
+            }
+
+            statusText.textContent = 'Conectando...';
+
+            try {
+
+                ws = new WebSocket(wsUrl);
+
+            } catch (err) {
+
+                showLoginError('Erro ao abrir WebSocket: ' + err.message);
+
+                return;
+
+            }
+
+            ws.onopen = () => {
+                if (window.agyReconnectTimer) {
+                    clearInterval(window.agyReconnectTimer);
+                    window.agyReconnectTimer = null;
+                }
+                // Send auth message
+                ws.send(JSON.stringify({ type: 'auth', password: password }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleServerMessage(data);
+            };
+
+            ws.onerror = (err) => {
+                statusText.textContent = 'Buscando servidor...';
+                statusDot.className = 'status-dot';
+            };
+
+            ws.onclose = () => {
+                statusText.textContent = 'Reconectando...';
+                statusDot.className = 'status-dot';
+                btnSend.disabled = true;
+
+                // Watchdog: busca novo túnel em endpoint.json e reconecta automaticamente
+                if (!window.agyReconnectTimer && password) {
+                    window.agyReconnectTimer = setInterval(async () => {
+                        try {
+                            const res = await fetch('./endpoint.json?t=' + Date.now());
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (data && data.url) {
+                                    if (data.url !== tunnelUrl) {
+                                        console.log('Novo túnel Cloudflare detectado no servidor:', data.url);
+                                        tunnelUrl = data.url;
+                                        inputTunnel.value = data.url;
+                                        localStorage.setItem('agy_remote_tunnel', tunnelUrl);
+                                    }
+                                    if (!ws || ws.readyState === WebSocket.CLOSED) {
+                                        connectWebSocket();
+                                    }
+                                }
+                            }
+                        } catch(e) {}
+                    }, 4000);
+                }
+            };
+
+        }
+
+        function handleServerMessage(data) {
+
+            if (data.type === 'auth_ok') {
+
+                loginOverlay.style.display = 'none';
+
+                statusText.textContent = 'Online (' + (data.host || 'antigravity-host') + ')';
+
+                statusDot.className = 'status-dot online';
+
+                btnSend.disabled = false;
+
+                promptInput.focus();
+
+                // If server sent initial history
+
+                if (data.history && Array.isArray(data.history)) {
+
+                    messagesContainer.innerHTML = '';
+
+                    data.history.forEach(item => renderMessageItem(item));
+
+                    scrollToBottom();
+
+                }
+
+            } else if (data.type === 'auth_fail') {
+
+                showLoginError('Senha incorreta!');
+
+                if (ws) ws.close();
+
+            } else if (data.type === 'msg_chunk' || data.type === 'msg_full') {
+
+                typingIndicator.classList.remove('active');
+
+                renderMessageItem(data.item);
+
+                scrollToBottom();
+
+            } else if (data.type === 'status_busy') {
+
+                typingIndicator.classList.add('active');
+
+            } else if (data.type === 'status_idle') {
+
+                typingIndicator.classList.remove('active');
+
+            }
+
+        }
+
+        function renderMessageItem(item) {
+
+            if (!item) return;
+
+            const row = document.createElement('div');
+
+            row.className = 'msg-row';
+
+            if (item.source === 'USER' || item.type === 'USER_INPUT') {
+
+                row.classList.add('msg-user');
+
+                row.innerHTML = `
+
+                    <div class="msg-header">
+
+                        <span class="msg-source-tag source-user">VOCÊ</span>
+
+                        <span>${item.time || ''}</span>
+
+                    </div>
+
+                    <div class="msg-body">${escapeHtml(item.content)}</div>
+
+                `;
+
+            } else if (item.type === 'TOOL_CALL') {
+
+                const card = document.createElement('div');
+
+                card.className = 'tool-card expanded';
+
+                card.innerHTML = `
+
+                    <div class="tool-header">
+
+                        <div class="tool-name">
+
+                            <span>⚙️</span>
+
+                            <span>${escapeHtml(item.tool_name || 'Comando')}</span>
+
+                        </div>
+
+                        <div class="tool-status">${escapeHtml(item.summary || 'Executado ✓')}</div>
+
+                    </div>
+
+                    <div class="tool-content" style="display:block;">${escapeHtml(item.content || item.output || '')}</div>
+
+                `;
+
+                card.querySelector('.tool-header').addEventListener('click', () => {
+
+                    const cnt = card.querySelector('.tool-content');
+
+                    if (cnt.style.display === 'none') {
+
+                        cnt.style.display = 'block';
+
+                        card.classList.add('expanded');
+
+                    } else {
+
+                        cnt.style.display = 'none';
+
+                        card.classList.remove('expanded');
+
+                    }
+
+                });
+
+                row.appendChild(card);
+
+            } else {
+
+                // MODEL / PLANNER_RESPONSE
+
+                row.classList.add('msg-model');
+
+                const htmlContent = marked.parse(item.content || '');
+
+                row.innerHTML = `
+
+                    <div class="msg-header">
+
+                        <span class="msg-source-tag source-model">ANTIGRAVITY</span>
+
+                        <span>${item.time || ''}</span>
+
+                    </div>
+
+                    <div class="msg-body">${htmlContent}</div>
+
+                `;
+
+            }
+
+            messagesContainer.appendChild(row);
+
+        }
+
+        function scrollToBottom() {
+
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        }
+
+        function escapeHtml(str) {
+
+            if (!str) return '';
+
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        }
+
+        // Send Message
+
+        function sendUserPrompt(text) {
+
+            if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+            
+
+            // Render locally immediately
+
+            renderMessageItem({
+
+                source: 'USER',
+
+                type: 'USER_INPUT',
+
+                content: text,
+
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+            });
+
+            scrollToBottom();
+
+            typingIndicator.classList.add('active');
+
+            ws.send(JSON.stringify({
+
+                type: 'user_message',
+
+                content: text
+
+            }));
+
+            promptInput.value = '';
+
+        }
+
+        btnSend.addEventListener('click', () => {
+
+            sendUserPrompt(promptInput.value.trim());
+
+        });
+
+        promptInput.addEventListener('keydown', (e) => {
+
+            if (e.key === 'Enter' && !e.shiftKey) {
+
+                e.preventDefault();
+
+                sendUserPrompt(promptInput.value.trim());
+
+            }
+
+        });
+
+        // Quick Chips
+
+        document.querySelectorAll('.chip').forEach(btn => {
+
+            btn.addEventListener('click', () => {
+
+                const prompt = btn.getAttribute('data-prompt');
+
+                sendUserPrompt(prompt);
+
+            });
+
+        });
+
+    </script>
+
+</body>
+
+</html>
+

@@ -280,72 +280,96 @@ async def transcript_monitor():
         except Exception as e:
             print(f"[MONITOR] Erro: {e}")
 
-async def start_cloudflared_and_sync():
+def push_endpoint_to_github(tunnel_url, host_info):
+    """Grava o endpoint.json localmente e sincroniza com o GitHub Pages de forma assíncrona/segura."""
+    endpoint_file = REPO_DIR / "endpoint.json"
+    try:
+        with open(endpoint_file, "w", encoding="utf-8") as f:
+            json.dump({
+                "url": tunnel_url,
+                "updated_at": time.time(),
+                "host": host_info
+            }, f, indent=2)
+        print(f"[ENDPOINT] Atualizado localmente ({host_info}): {tunnel_url}")
+    except Exception as e:
+        print(f"[ENDPOINT] Erro ao gravar endpoint.json: {e}")
+
+    token = find_github_token()
+    if not token:
+        print("[GITHUB] GITHUB_TOKEN não configurado. O endpoint foi salvo localmente.")
+        return
+
+    try:
+        remote_url = f"https://vudotsur:{token}@github.com/vudotsur/antigravity-remote.git"
+        subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "remote", "set-url", "origin", remote_url], capture_output=True, timeout=5)
+        # Pull rebase silencioso
+        subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "pull", "--rebase", "origin", "main"], capture_output=True, timeout=12)
+        subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "add", "endpoint.json"], capture_output=True, timeout=5)
+        subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "commit", "-m", "chore: sync tunnel endpoint [skip ci]"], capture_output=True, timeout=5)
+        res = subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "push", "origin", "main"], capture_output=True, text=True, timeout=15)
+        if res.returncode == 0:
+            print("[GITHUB] endpoint.json sincronizado com o GitHub Pages com sucesso!")
+        else:
+            print(f"[GITHUB] Aviso na sincronização: {res.stderr[:200]}")
+    except Exception as e:
+        print(f"[GITHUB] Falha não-bloqueante na sincronização do endpoint: {e}")
+
+current_tunnel_url = None
+tunnel_process = None
+
+async def cloudflared_watchdog():
+    """Watchdog permanente do túnel Cloudflare: auto-inicia, captura URL e auto-recupera se cair."""
+    global current_tunnel_url, tunnel_process
     if not USE_TUNNEL:
         print("[TUNNEL] Modo local (--no-tunnel ativado).")
-        return None, None
+        return
 
-    print("[TUNNEL] Iniciando túnel seguro Cloudflare...")
-    try:
-        proc = subprocess.Popen(
-            [CLOUDFLARED_BIN, "tunnel", "--url", f"http://127.0.0.1:{PORT}"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1
-        )
-    except Exception as e:
-        print(f"[TUNNEL] Erro ao iniciar cloudflared: {e}")
-        return None, None
-
-    tunnel_url = None
-    start = time.time()
-    while time.time() - start < 15:
-        line = proc.stderr.readline()
-        if "trycloudflare.com" in line:
-            m = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
-            if m:
-                tunnel_url = m.group(0)
-                break
-
-    if not tunnel_url:
-        print("[TUNNEL] Não foi possível capturar a URL do túnel automaticamente.")
-        return proc, None
-
-    print(f"\n" + "="*60)
-    print(f"🚀 TÚNEL ONLINE: {tunnel_url}")
-    print(f"="*60 + "\n")
-
-    # Salva endpoint.json localmente no repositório
-    endpoint_file = REPO_DIR / "endpoint.json"
-    host_info = f"{socket.gethostname()} ({platform.system()})"
-    with open(endpoint_file, "w", encoding="utf-8") as f:
-        json.dump({
-            "url": tunnel_url,
-            "updated_at": time.time(),
-            "host": host_info
-        }, f, indent=2)
-    print(f"[ENDPOINT] Atualizado localmente ({host_info}): {endpoint_file}")
-
-    # Sincroniza com GitHub Pages se houver token ou credenciais
-    token = find_github_token()
-    if token:
+    while True:
+        print("[TUNNEL] Iniciando túnel Cloudflare seguro...")
         try:
-            remote_url = f"https://vudotsur:{token}@github.com/vudotsur/antigravity-remote.git"
-            subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "remote", "set-url", "origin", remote_url], stderr=subprocess.DEVNULL)
-            # Rebase com origin/main para evitar conflitos de branch
-            subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "pull", "--rebase", "origin", "main"], stderr=subprocess.DEVNULL)
-            subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "add", "endpoint.json"], check=True)
-            subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "commit", "-m", "chore: sync tunnel endpoint [skip ci]"], check=True)
-            subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "push", "origin", "main"], check=True)
-            print("[GITHUB] endpoint.json sincronizado com o GitHub Pages com sucesso!")
+            tunnel_process = subprocess.Popen(
+                [CLOUDFLARED_BIN, "tunnel", "--url", f"http://127.0.0.1:{PORT}"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
+            )
         except Exception as e:
-            print(f"[GITHUB] Aviso ao sincronizar com GitHub Pages: {e}")
-    else:
-        print("[GITHUB] Para sincronizar o endpoint automaticamente no GitHub Pages,")
-        print("         configure GITHUB_TOKEN no ambiente ou faça 'gh auth login'.")
+            print(f"[TUNNEL] Erro ao executar cloudflared: {e}. Tentando novamente em 10s...")
+            await asyncio.sleep(10)
+            continue
 
-    return proc, tunnel_url
+        captured_url = None
+        start = time.time()
+        while time.time() - start < 20:
+            line = tunnel_process.stderr.readline()
+            if "trycloudflare.com" in line:
+                m = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
+                if m:
+                    captured_url = m.group(0)
+                    break
+
+        if captured_url:
+            current_tunnel_url = captured_url
+            host_info = f"{socket.gethostname()} ({platform.system()})"
+            print(f"\n" + "="*60)
+            print(f"🚀 TÚNEL ONLINE: {current_tunnel_url}")
+            print(f"🔗 Acesse no celular / navegador: https://vudotsur.github.io/antigravity-remote/")
+            print(f"="*60 + "\n")
+
+            # Executa push em thread separada para não bloquear o servidor assíncrono
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, push_endpoint_to_github, current_tunnel_url, host_info)
+        else:
+            print("[TUNNEL] Aviso: URL do túnel não foi capturada. Monitorando processo...")
+
+        # Monitora o processo do Cloudflare: se for desconectado, reinicia imediatamente
+        while tunnel_process and tunnel_process.poll() is None:
+            await asyncio.sleep(2)
+
+        exit_code = tunnel_process.poll() if tunnel_process else -1
+        print(f"[TUNNEL] Conexão Cloudflare encerrada (code={exit_code}). Reiniciando túnel em 3s...")
+        await asyncio.sleep(3)
 
 async def main():
     try:
@@ -359,30 +383,29 @@ async def main():
     print(f"• Diretório do Repositório: {REPO_DIR}")
     print(f"• Log do Transcript: {get_transcript_path()}")
 
-    tunnel_proc, tunnel_url = await start_cloudflared_and_sync()
-
+    # 1. Inicia o servidor WebSocket PRIMEIRO (garante porta aberta)
     print(f"[SERVER] Abrindo WebSocket na porta {PORT} ({HOST})...")
     server = await websockets.serve(handle_ws_client, HOST, PORT)
+    print(f"[SERVER] Servidor WebSocket ativo e aguardando conexões na porta {PORT}!")
 
+    # 2. Inicia o monitor de transcrição e o watchdog do Cloudflare em background
     monitor_task = asyncio.create_task(transcript_monitor())
+    tunnel_task = asyncio.create_task(cloudflared_watchdog())
 
     print("\n" + "="*60)
     print("💎 ANTIGRAVITY REMOTE HOST ATIVO")
-    print(f"🔗 Acesse no celular / navegador: https://vudotsur.github.io/antigravity-remote/")
     print(f"🔑 Senha mestra de acesso: {PASSWORD}")
-    if tunnel_url:
-        print(f"🌐 Túnel Cloudflare: {tunnel_url}")
-    else:
-        print(f"🌐 Local: ws://localhost:{PORT}")
+    print(f"🌐 WebSocket local: ws://localhost:{PORT}")
     print("="*60 + "\n")
 
     try:
-        await asyncio.gather(server.wait_closed(), monitor_task)
+        await asyncio.gather(server.wait_closed(), monitor_task, tunnel_task)
     finally:
-        if tunnel_proc:
+        if tunnel_process:
             try:
-                tunnel_proc.terminate()
+                tunnel_process.terminate()
             except Exception:
+                pass
                 pass
 
 if __name__ == "__main__":
