@@ -564,6 +564,9 @@
         </div>
 
         <div class="header-actions">
+            <button id="btn-clear-screen" class="btn-header" title="Limpar visualização da tela do celular">
+                <span>🧹 Limpar Tela</span>
+            </button>
             <button id="btn-toggle-collapsed" class="btn-header" title="Alternar visão colapsada (Ctrl+O)">
                 <span id="btn-toggle-text">[Ctrl+O] Expandido</span>
             </button>
@@ -629,6 +632,13 @@
             btnToggleCollapsed.classList.toggle('active', !isCollapsed);
         }
         updateCollapsedUI();
+
+        const btnClearScreen = document.getElementById('btn-clear-screen');
+        if (btnClearScreen) {
+            btnClearScreen.addEventListener('click', () => {
+                messagesContainer.innerHTML = '';
+            });
+        }
 
         // Collapsed mode toggle
         btnToggleCollapsed.addEventListener('click', () => {
