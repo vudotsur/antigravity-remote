@@ -302,10 +302,14 @@ def push_endpoint_to_github(tunnel_url, host_info):
     try:
         remote_url = f"https://vudotsur:{token}@github.com/vudotsur/antigravity-remote.git"
         subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "remote", "set-url", "origin", remote_url], capture_output=True, timeout=5)
-        # Pull rebase silencioso
-        subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "pull", "--rebase", "origin", "main"], capture_output=True, timeout=12)
+        # Adiciona e commita ANTES do pull para evitar conflito de "unstaged changes"
         subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "add", "endpoint.json"], capture_output=True, timeout=5)
-        subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "commit", "-m", "chore: sync tunnel endpoint [skip ci]"], capture_output=True, timeout=5)
+        commit_res = subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "commit", "-m", "chore: sync tunnel endpoint [skip ci]"], capture_output=True, timeout=5)
+        if commit_res.returncode != 0:
+            # Se não há nada para commitar (working tree clean), tudo bem — apenas faz push
+            pass
+        # Pull rebase silencioso após o commit local
+        subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "pull", "--rebase", "origin", "main"], capture_output=True, timeout=12)
         res = subprocess.run([GIT_BIN, "-C", str(REPO_DIR), "push", "origin", "main"], capture_output=True, text=True, timeout=15)
         if res.returncode == 0:
             print("[GITHUB] endpoint.json sincronizado com o GitHub Pages com sucesso!")
