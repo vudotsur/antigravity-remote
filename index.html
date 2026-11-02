@@ -526,7 +526,7 @@
         }
     </style>
 </head>
-<body class="mode-collapsed">
+<body class="mode-expanded">
 
     <!-- Login Overlay Modal -->
     <div id="login-overlay">
@@ -564,8 +564,8 @@
         </div>
 
         <div class="header-actions">
-            <button id="btn-toggle-collapsed" class="btn-header active" title="Alternar visão colapsada (Ctrl+O)">
-                <span>[Ctrl+O] Collapsed</span>
+            <button id="btn-toggle-collapsed" class="btn-header" title="Alternar visão colapsada (Ctrl+O)">
+                <span id="btn-toggle-text">[Ctrl+O] Expandido</span>
             </button>
             <div class="status-pill">
                 <div id="status-dot" class="status-dot"></div>
@@ -605,7 +605,7 @@
         let ws = null;
         let tunnelUrl = localStorage.getItem('agy_remote_tunnel') || '';
         let password = localStorage.getItem('agy_remote_pass') || '';
-        let isCollapsed = true;
+        let isCollapsed = localStorage.getItem('agy_remote_collapsed') === 'true'; // false by default = EXPANDED!
 
         const messagesContainer = document.getElementById('messages-container');
         const typingIndicator = document.getElementById('typing-indicator');
@@ -614,36 +614,27 @@
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
         const btnToggleCollapsed = document.getElementById('btn-toggle-collapsed');
+        const btnToggleText = document.getElementById('btn-toggle-text');
         const loginOverlay = document.getElementById('login-overlay');
         const inputTunnel = document.getElementById('input-tunnel');
         const inputPassword = document.getElementById('input-password');
         const btnDoLogin = document.getElementById('btn-do-login');
         const loginError = document.getElementById('login-error');
 
-        // Try to auto-fetch endpoint.json from repository
-        async function loadAutoEndpoint() {
-            try {
-                const res = await fetch('endpoint.json?t=' + Date.now());
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.url) {
-                        inputTunnel.value = data.url;
-                        tunnelUrl = data.url;
-                    }
-                }
-            } catch (e) {
-                console.log('endpoint.json not yet available, using saved tunnel');
+        function updateCollapsedUI() {
+            document.body.classList.toggle('mode-collapsed', isCollapsed);
+            if (btnToggleText) {
+                btnToggleText.textContent = isCollapsed ? '[Ctrl+O] Colapsado' : '[Ctrl+O] Expandido (Ver Tudo)';
             }
-            if (tunnelUrl && !inputTunnel.value) inputTunnel.value = tunnelUrl;
-            if (password && !inputPassword.value) inputPassword.value = password;
+            btnToggleCollapsed.classList.toggle('active', !isCollapsed);
         }
-        loadAutoEndpoint();
+        updateCollapsedUI();
 
         // Collapsed mode toggle
         btnToggleCollapsed.addEventListener('click', () => {
             isCollapsed = !isCollapsed;
-            document.body.classList.toggle('mode-collapsed', isCollapsed);
-            btnToggleCollapsed.classList.toggle('active', isCollapsed);
+            localStorage.setItem('agy_remote_collapsed', isCollapsed);
+            updateCollapsedUI();
         });
 
         // Login Handler
@@ -754,7 +745,7 @@
                 `;
             } else if (item.type === 'TOOL_CALL') {
                 const card = document.createElement('div');
-                card.className = 'tool-card';
+                card.className = 'tool-card expanded';
                 card.innerHTML = `
                     <div class="tool-header">
                         <div class="tool-name">
@@ -763,11 +754,17 @@
                         </div>
                         <div class="tool-status">${escapeHtml(item.summary || 'Executado ✓')}</div>
                     </div>
-                    <div class="tool-content">${escapeHtml(item.content || item.output || '')}</div>
+                    <div class="tool-content" style="display:block;">${escapeHtml(item.content || item.output || '')}</div>
                 `;
                 card.querySelector('.tool-header').addEventListener('click', () => {
-                    card.classList.toggle('expanded');
-                    card.classList.add('user-expanded');
+                    const cnt = card.querySelector('.tool-content');
+                    if (cnt.style.display === 'none') {
+                        cnt.style.display = 'block';
+                        card.classList.add('expanded');
+                    } else {
+                        cnt.style.display = 'none';
+                        card.classList.remove('expanded');
+                    }
                 });
                 row.appendChild(card);
             } else {
