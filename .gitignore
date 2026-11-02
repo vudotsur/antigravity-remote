@@ -1,0 +1,16 @@
+# Antigravity Remote Host Runtime Files
+server.log
+server.err.log
+server.pid
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Secrets & Local Config
+.github_token
+.env
+*.local
+
+# OS Artifacts
+.DS_Store
+Thumbs.db
